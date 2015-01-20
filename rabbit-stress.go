@@ -18,7 +18,7 @@ func main() {
 	app.Name = "rabbit-stress"
 	app.Usage = "RabbitMQ stress test tool"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{"server, s", "localhost", "Hostname for RabbitMQ server", ""},
+		cli.StringFlag{"server, s", "amqp://guest:guest@localhost:5672", "RabbitMQ connection string.", ""},
 		cli.IntFlag{"ramp, r", 0, "Numberof milli-seconds to wait between generation of consumer/producer pair.", ""},
 		cli.IntFlag{"producer, p", 0, "Number of messages to produce, -1 to produce forever", ""},
 		cli.IntFlag{"wait, w", 0, "Number of milliseconds to wait between publish events", ""},
@@ -36,7 +36,7 @@ func main() {
 func runApp(c *cli.Context) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
-	uri := "amqp://guest:guest@" + c.String("server") + ":5672"
+	uri := c.String("server")
 	// Timer for  generating consumer/producer pair
 	var ramp int
 	consumerGen := make(chan bool)
