@@ -1,14 +1,15 @@
-package main
+package consumer
 
 import (
 	"encoding/json"
+	"github.com/avinash240/rabbit-mq-stress-tester/queue"
 	"github.com/streadway/amqp"
 	"log"
 	"time"
 )
 
-func Consume(uri string, doneChan chan bool) {
-	log.Println("Consuming...")
+func Consume(number int, uri string) {
+	log.Printf("Consumer %d, connecting.\n", number)
 	connection, err := amqp.Dial(uri)
 	if err != nil {
 		println(err.Error())
@@ -23,7 +24,7 @@ func Consume(uri string, doneChan chan bool) {
 	}
 	defer channel.Close()
 
-	q := MakeQueue(channel)
+	q := queue.MakeQueue(channel)
 
 	msgs, err3 := channel.Consume(q.Name, "", true, false, false, false, nil)
 	if err3 != nil {
@@ -31,13 +32,12 @@ func Consume(uri string, doneChan chan bool) {
 	}
 
 	for d := range msgs {
-		doneChan <- true
-		var thisMessage MqMessage
+		var thisMessage queue.MqMessage
 		err4 := json.Unmarshal(d.Body, &thisMessage)
 		if err4 != nil {
 			log.Printf("Error unmarshalling! %s", err.Error())
 		}
-		log.Printf("Message age: %s", time.Since(thisMessage.TimeNow))
+		log.Printf("Consumer(%d) - Receiver message, age: %s", number, time.Since(thisMessage.TimeNow))
 
 	}
 

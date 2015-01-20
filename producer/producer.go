@@ -1,7 +1,8 @@
-package main
+package producer
 
 import (
 	"encoding/json"
+	"github.com/avinash240/rabbit-mq-stress-tester/queue"
 	"github.com/streadway/amqp"
 	"log"
 	"time"
@@ -14,18 +15,21 @@ type ProducerConfig struct {
 	WaitForAck bool
 }
 
-func Produce(config ProducerConfig, tasks chan int) {
+func Produce(number int, config ProducerConfig, tasks chan int, messageCount int) {
+	log.Printf("Producer %d, connecting.", number)
 	connection, err := amqp.Dial(config.Uri)
 	if err != nil {
 		println(err.Error())
 		panic(err.Error())
 	}
+	defer connection.Close()
 
 	channel, err1 := connection.Channel()
 	if err1 != nil {
 		println(err1.Error())
 		panic(err1.Error())
 	}
+	defer channel.Close()
 
 	if config.WaitForAck {
 		channel.Confirm(false)
@@ -33,24 +37,22 @@ func Produce(config ProducerConfig, tasks chan int) {
 
 	ack, nack := channel.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
 
-	q := MakeQueue(channel)
+	q := queue.MakeQueue(channel)
 
 	for {
-
+		//
 		sequenceNumber, alive := <-tasks
 
 		if !alive {
-			channel.Close()
-			connection.Close()
-			log.Println("Broke out of loop!")
+			log.Println("No more messages to publish. Publisher shutting down!")
 			return
 		}
 
 		start := time.Now()
 
-		message := &MqMessage{start, sequenceNumber, makeString(config.Bytes)}
+		message := &queue.MqMessage{start, sequenceNumber, makeString(config.Bytes)}
 		messageJson, _ := json.Marshal(message)
-
+		log.Printf("Producer(%d) - Publishing message: %d", number, sequenceNumber)
 		channel.Publish("", q.Name, true, false, amqp.Publishing{
 			Headers:         amqp.Table{},
 			ContentType:     "text/plain",
@@ -64,7 +66,7 @@ func Produce(config ProducerConfig, tasks chan int) {
 		confirmOne(ack, nack, config.Quiet, config.WaitForAck)
 
 		if !config.Quiet {
-			log.Println(time.Since(start))
+			log.Printf("Producer(%d) - Publish took: %s.\n", number, time.Since(start))
 		}
 	}
 
