@@ -18,3 +18,12 @@ func MakeQueue(c *amqp.Channel) amqp.Queue {
 	}
 	return q
 }
+
+func GetConnection(uri string) *amqp.Connection {
+	connection, err := amqp.Dial(uri)
+	if err != nil {
+		println(err.Error())
+		panic(err.Error())
+	}
+	return connection
+}

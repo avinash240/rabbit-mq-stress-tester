@@ -16,30 +16,25 @@ type ProducerConfig struct {
 }
 
 func Produce(number int, config ProducerConfig, tasks chan int, messageCount int) {
-	log.Printf("Producer %d, connecting.", number)
-	connection, err := amqp.Dial(config.Uri)
-	if err != nil {
-		println(err.Error())
-		panic(err.Error())
-	}
-	defer connection.Close()
-
-	channel, err1 := connection.Channel()
-	if err1 != nil {
-		println(err1.Error())
-		panic(err1.Error())
-	}
-	defer channel.Close()
-
-	if config.WaitForAck {
-		channel.Confirm(false)
-	}
-
-	ack, nack := channel.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
-
-	q := queue.MakeQueue(channel)
-
 	for {
+		log.Printf("Producer %d, connecting.", number)
+		connection := queue.GetConnection(config.Uri)
+
+		channel, err1 := connection.Channel()
+		if err1 != nil {
+			println(err1.Error())
+			panic(err1.Error())
+		}
+		defer channel.Close()
+
+		if config.WaitForAck {
+			channel.Confirm(false)
+		}
+
+		ack, nack := channel.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
+
+		q := queue.MakeQueue(channel)
+
 		//
 		sequenceNumber, alive := <-tasks
 
@@ -68,8 +63,9 @@ func Produce(number int, config ProducerConfig, tasks chan int, messageCount int
 		if !config.Quiet {
 			log.Printf("Producer(%d) - Publish took: %s.\n", number, time.Since(start))
 		}
+		//
+		connection.Close()
 	}
-
 }
 
 func confirmOne(ack, nack chan uint64, quiet bool, waitForAck bool) {
